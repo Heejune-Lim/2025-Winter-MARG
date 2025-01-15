@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Jan  8 10:52:39 2025
-Most actual work done in Jan 14
+Most of the significant changes done in Jan 14
+OG: https://muscima.readthedocs.io/en/latest/Tutorial.html
 @author: HeejuneLim
 """
 
@@ -179,10 +180,12 @@ y_test_pred = clf.predict(X_test)
 from sklearn.metrics import classification_report
 print(classification_report(y_test, y_test_pred, target_names=['half', 'quarter']))
 
-#Above was the tutorial
+"""
+Above was the original MUSCIMA++ tutorial
+"""
 
 import torch
-from torch import nn
+import torch.nn as nn
 from torch.utils.data import Dataset
 notes_torch = torch.Tensor(notes)
 notes_torch = torch.unsqueeze(notes_torch, 1)
@@ -258,16 +261,32 @@ print(out)
 net.zero_grad()
 out.backward(torch.randn(1, 10))
 
+def weights_init(layer): 
+    if isinstance(layer, (nn.Conv2d, nn.Linear)):
+        nn.init.xavier_uniform(layer.weight.data)
 
-net = Net()
+
 
 import torch.optim as optim
 
+
+def model_test(dataloader, net):
+    ftotal = 0
+    fcorrect = 0
+    with torch.no_grad():
+        for data in dataloader:
+            X, y = data
+            outputs = net(X)
+            _, predicted = torch.max(outputs, 1)
+            ftotal += y.size(0)
+            fcorrect += (predicted == y).sum().item()
+    print(f'Accuracy of the network on the set {100 * fcorrect // ftotal} %')
+
+torch.manual_seed(0)
+net = Net()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-
-
-for epoch in range(2):  # loop over the dataset multiple times
+for epoch in range(20):  # Change for different number of epoches
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -285,36 +304,15 @@ for epoch in range(2):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % 100 == 99:    # print every 2000 mini-batches
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+        if i % 360 == 359:    # print every epoch
+            print(f'{running_loss/360:.3f}')
             running_loss = 0.0
 
 print('Finished Training')
 
-correct = 0
-total = 0
-# since we're not training, we don't need to calculate the gradients for our outputs
-with torch.no_grad():
-    for data in validloader:
-        X, y = data
-        # calculate outputs by running images through the network
-        outputs = net(X)
-        # the class with the highest energy is what we choose as prediction
-        _, predicted = torch.max(outputs, 1)
-        total += y.size(0)
-        correct += (predicted == y).sum().item()
+model_test(validloader, net)
+torch.save(net.state_dict(), 'tutorial_weights.pth')
 
-print(f'Accuracy of the network on the validation set: {100 * correct // total} %')
-
-def model_test(dataloader, net):
-    ftotal = 0
-    fcorrect = 0
-    with torch.no_grad():
-        for data in dataloader:
-            X, y = data
-            outputs = net(X)
-            _, predicted = torch.max(outputs, 1)
-            ftotal += y.size(0)
-            fcorrect += (predicted == y).sum().item()
-    print(f'Accuracy of the network on the dataloader set {100 * fcorrect // ftotal} %')
+net.load_state_dict(torch.load('tutorial_weights.pth'))
+net.eval()
 model_test(testloader, net)
